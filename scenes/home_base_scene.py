@@ -3,8 +3,8 @@ from __future__ import annotations
 import pygame
 
 from core.scene import BaseScene
-from core.world import WorldView
-from entities.actor import Actor
+from core.viewport import MapViewport
+from entities.player import Player
 
 
 class HomeBaseScene(BaseScene):
@@ -16,7 +16,7 @@ class HomeBaseScene(BaseScene):
         self.font = pygame.font.SysFont(None, 28)
         self.small_font = pygame.font.SysFont(None, 24)
         spawn = self.game_state.home_base_size_m / 2.0
-        self.actor = Actor(spawn, spawn, yaw_rad=0.0)
+        self.player = Player(spawn, spawn, yaw_rad=0.0)
         self.move_speed_mps = 3.0
         self.turn_speed_rps = 2.8
 
@@ -43,25 +43,25 @@ class HomeBaseScene(BaseScene):
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
             omega_rps += self.turn_speed_rps
 
-        self.actor.update(v_mps, omega_rps, dt)
+        self.player.update(v_mps, omega_rps, dt)
         size_m = self.game_state.home_base_size_m
-        self.actor.clamp_to_bounds(0.0, size_m, 0.0, size_m)
+        self.player.clamp_to_bounds(0.0, size_m, 0.0, size_m)
 
     def draw(self, screen) -> None:
         screen.fill((20, 34, 28))
 
         size_m = self.game_state.home_base_size_m
-        view = WorldView(size_m, size_m, screen.get_rect(), padding_px=140)
+        view = MapViewport(size_m, size_m, screen.get_rect(), padding_px=140)
         base_rect = view.rect_to_screen(0, 0, size_m, size_m)
 
         pygame.draw.rect(screen, (48, 90, 65), base_rect)
         pygame.draw.rect(screen, (210, 230, 220), base_rect, width=3)
 
         self._draw_meter_grid(screen, view, size_m)
-        self.actor.draw(screen, view)
+        self.player.draw(screen, view)
         self._draw_ui(screen)
 
-    def _draw_meter_grid(self, screen, view: WorldView, size_m: float) -> None:
+    def _draw_meter_grid(self, screen, view: MapViewport, size_m: float) -> None:
         for meter in range(1, int(size_m)):
             x, y0 = view.to_screen(float(meter), 0.0)
             _, y1 = view.to_screen(float(meter), size_m)

@@ -8,7 +8,7 @@ import pygame
 
 
 @dataclass
-class WorldView:
+class MapViewport:
     """Maps meter-space coordinates into pixels while fitting inside the screen."""
 
     world_width_m: float

@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import random
-
 import pygame
 
 from core.scene import BaseScene
-from core.world import WorldView, block_bounds, generate_block_layout
-from entities.actor import Actor
+from core.viewport import MapViewport, block_bounds
+from entities.player import Player
 
 
 class LevelScene(BaseScene):
@@ -17,22 +15,19 @@ class LevelScene(BaseScene):
         self.game_state = game_state
         self.font = pygame.font.SysFont(None, 28)
         self.small_font = pygame.font.SysFont(None, 24)
-        self.actor = Actor(0.0, 0.0, yaw_rad=0.0)
+        self.player = Player(0.0, 0.0, yaw_rad=0.0)
         self.move_speed_mps = 4.0
         self.turn_speed_rps = 3.0
+        self.game_state.level_layout_blocks = self._fixed_3x3_layout()
         self._spawn_actor_in_level()
 
     def on_enter(self, payload=None) -> None:
-        if not self.game_state.level_layout_blocks:
-            self._regenerate_layout()
+        self.game_state.level_layout_blocks = self._fixed_3x3_layout()
         self._spawn_actor_in_level()
 
     def handle_event(self, event) -> None:
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_r:
-                self._regenerate_layout()
-                self._spawn_actor_in_level()
-            elif event.key == pygame.K_b:
+            if event.key == pygame.K_b:
                 self.manager.change_scene("home_base")
             elif event.key == pygame.K_m:
                 self.manager.change_scene("start_menu")
@@ -53,9 +48,9 @@ class LevelScene(BaseScene):
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
             omega_rps += self.turn_speed_rps
 
-        self.actor.update(v_mps, omega_rps, dt)
+        self.player.update(v_mps, omega_rps, dt)
         world_width_m, world_height_m = self._world_size_m()
-        self.actor.clamp_to_bounds(0.0, world_width_m, 0.0, world_height_m)
+        self.player.clamp_to_bounds(0.0, world_width_m, 0.0, world_height_m)
 
     def draw(self, screen) -> None:
         screen.fill((24, 24, 30))
@@ -67,7 +62,7 @@ class LevelScene(BaseScene):
         world_width_m = (max_x - min_x + 1) * block_size_m
         world_height_m = (max_y - min_y + 1) * block_size_m
 
-        view = WorldView(world_width_m, world_height_m, screen.get_rect(), padding_px=130)
+        view = MapViewport(world_width_m, world_height_m, screen.get_rect(), padding_px=130)
 
         for bx, by in blocks:
             x_m = (bx - min_x) * block_size_m
@@ -76,14 +71,13 @@ class LevelScene(BaseScene):
             pygame.draw.rect(screen, (64, 76, 112), rect)
             pygame.draw.rect(screen, (210, 220, 255), rect, width=2)
 
-        self.actor.draw(screen, view, body_color=(245, 188, 100), marker_color=(42, 56, 84))
+        self.player.draw(screen, view, body_color=(245, 188, 100), marker_color=(42, 56, 84))
 
         self._draw_ui(screen, len(blocks), block_size_m)
 
-    def _regenerate_layout(self) -> None:
-        rng = random.Random()
-        layout = generate_block_layout(self.game_state.level_block_count, rng)
-        self.game_state.level_layout_blocks = sorted(layout)
+    @staticmethod
+    def _fixed_3x3_layout() -> list[tuple[int, int]]:
+        return [(x, y) for y in range(3) for x in range(3)]
 
     def _world_size_m(self) -> tuple[float, float]:
         blocks = self.game_state.level_layout_blocks
@@ -95,9 +89,9 @@ class LevelScene(BaseScene):
 
     def _spawn_actor_in_level(self) -> None:
         world_width_m, world_height_m = self._world_size_m()
-        self.actor.x_m = world_width_m * 0.5
-        self.actor.y_m = world_height_m * 0.5
-        self.actor.yaw_rad = 0.0
+        self.player.x_m = world_width_m * 0.5
+        self.player.y_m = world_height_m * 0.5
+        self.player.yaw_rad = 0.0
 
     def _draw_ui(self, screen, block_count: int, block_size_m: float) -> None:
         title = self.font.render("Level Scene (Modular Blocks)", True, (235, 240, 252))
@@ -106,14 +100,12 @@ class LevelScene(BaseScene):
             True,
             (217, 225, 245),
         )
-        line1 = self.small_font.render("R: Regenerate layout", True, (217, 225, 245))
-        line2 = self.small_font.render("B: Return to Home Base", True, (217, 225, 245))
-        line3 = self.small_font.render("W/S: Move   A/D: Turn", True, (217, 225, 245))
-        line4 = self.small_font.render("M: Back to Menu", True, (217, 225, 245))
+        line1 = self.small_font.render("B: Return to Home Base", True, (217, 225, 245))
+        line2 = self.small_font.render("W/S: Move   A/D: Turn", True, (217, 225, 245))
+        line3 = self.small_font.render("M: Back to Menu", True, (217, 225, 245))
 
         screen.blit(title, (24, 18))
         screen.blit(details, (24, 52))
         screen.blit(line1, (24, 78))
         screen.blit(line2, (24, 104))
         screen.blit(line3, (24, 130))
-        screen.blit(line4, (24, 156))
