@@ -12,6 +12,12 @@ class BaseScene:
     def __init__(self, manager: "SceneManager") -> None:
         self.manager = manager
 
+    def __str__(self) -> str:
+        return self.__class__.__name__
+
+    def __repr__(self) -> str:
+        return self.__class__.__name__
+
     def on_enter(self, payload: Optional[dict[str, Any]] = None) -> None:
         pass
 

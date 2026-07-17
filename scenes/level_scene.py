@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import pygame
 
+from core.map import Map
 from core.scene import BaseScene
-from core.viewport import MapViewport, block_bounds
+from core.viewport import MapViewport
+from entities.npc import NPCState
 from entities.player import Player
+from core.orchestrator import Orchestrator
 
 
 class LevelScene(BaseScene):
-    """Displays a modular level composed of adjacent 10m x 10m blocks."""
+    """Level scene with a local 10m x 10m planning map for NPCs."""
 
     def __init__(self, manager, game_state) -> None:
         super().__init__(manager)
@@ -18,12 +21,15 @@ class LevelScene(BaseScene):
         self.player = Player(0.0, 0.0, yaw_rad=0.0)
         self.move_speed_mps = 4.0
         self.turn_speed_rps = 3.0
-        self.game_state.level_layout_blocks = self._fixed_3x3_layout()
+
+        self.level_map_size_m = 40.0
+        self.level_map = self._build_level_map()
+
         self._spawn_actor_in_level()
 
     def on_enter(self, payload=None) -> None:
-        self.game_state.level_layout_blocks = self._fixed_3x3_layout()
         self._spawn_actor_in_level()
+        self._setup_enemy_orchestrator()
 
     def handle_event(self, event) -> None:
         if event.type == pygame.KEYDOWN:
@@ -48,44 +54,43 @@ class LevelScene(BaseScene):
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
             omega_rps += self.turn_speed_rps
 
+        for enemy in self.enemies.actors:
+            if enemy.state == NPCState.Idle:
+                self.enemies.plan_actor_to_goal(enemy.id, self.player.x_m, self.player.y_m)
+        self.enemies.loop(dt)
         self.player.update(v_mps, omega_rps, dt)
+
         world_width_m, world_height_m = self._world_size_m()
         self.player.clamp_to_bounds(0.0, world_width_m, 0.0, world_height_m)
 
     def draw(self, screen) -> None:
         screen.fill((24, 24, 30))
 
-        blocks = self.game_state.level_layout_blocks
-        block_size_m = self.game_state.world_units_per_block
-
-        min_x, max_x, min_y, max_y = block_bounds(blocks)
-        world_width_m = (max_x - min_x + 1) * block_size_m
-        world_height_m = (max_y - min_y + 1) * block_size_m
+        world_width_m, world_height_m = self._world_size_m()
 
         view = MapViewport(world_width_m, world_height_m, screen.get_rect(), padding_px=130)
 
-        for bx, by in blocks:
-            x_m = (bx - min_x) * block_size_m
-            y_m = (by - min_y) * block_size_m
-            rect = view.rect_to_screen(x_m, y_m, block_size_m, block_size_m)
-            pygame.draw.rect(screen, (64, 76, 112), rect)
-            pygame.draw.rect(screen, (210, 220, 255), rect, width=2)
+        rect = view.rect_to_screen(0.0, 0.0, world_width_m, world_height_m)
+        pygame.draw.rect(screen, (64, 76, 112), rect)
+        pygame.draw.rect(screen, (210, 220, 255), rect, width=2)
 
+        self._draw_enemy_paths(screen, view)
         self.player.draw(screen, view, body_color=(245, 188, 100), marker_color=(42, 56, 84))
+        for enemy in self.enemies.actors:
+            enemy.draw(screen, view)
 
-        self._draw_ui(screen, len(blocks), block_size_m)
+        self._draw_ui(screen)
 
-    @staticmethod
-    def _fixed_3x3_layout() -> list[tuple[int, int]]:
-        return [(x, y) for y in range(3) for x in range(3)]
+    def _build_level_map(self) -> Map:
+        size = self.level_map_size_m
+        payload = {
+            "contain": [[0.0, 0.0], [size, 0.0], [size, size], [0.0, size]],
+            "exclusions": [],
+        }
+        return Map(payload, grid_resolution=0.04)
 
     def _world_size_m(self) -> tuple[float, float]:
-        blocks = self.game_state.level_layout_blocks
-        block_size_m = self.game_state.world_units_per_block
-        min_x, max_x, min_y, max_y = block_bounds(blocks)
-        world_width_m = (max_x - min_x + 1) * block_size_m
-        world_height_m = (max_y - min_y + 1) * block_size_m
-        return world_width_m, world_height_m
+        return (self.level_map_size_m, self.level_map_size_m)
 
     def _spawn_actor_in_level(self) -> None:
         world_width_m, world_height_m = self._world_size_m()
@@ -93,10 +98,31 @@ class LevelScene(BaseScene):
         self.player.y_m = world_height_m * 0.5
         self.player.yaw_rad = 0.0
 
-    def _draw_ui(self, screen, block_count: int, block_size_m: float) -> None:
-        title = self.font.render("Level Scene (Modular Blocks)", True, (235, 240, 252))
+    def _setup_enemy_orchestrator(self) -> None:
+        self.enemies = Orchestrator(map=self.level_map)
+
+        self.enemies.add_actor(0, 2.0, 20.0, 0.0)
+
+    def _draw_enemy_paths(self, screen, view) -> None:
+        for enemy in self.enemies.actors:
+            if len(enemy.path) == 0:
+                continue
+
+            points_px = [view.to_screen(float(x), float(y)) for x, y in enemy.path]
+
+            if len(points_px) > 1:
+                pygame.draw.lines(screen, (255, 168, 180), False, points_px, 2)
+
+            for i, p in enumerate(points_px):
+                radius = 2 if i == 0 else 3
+                color = (255, 220, 226) if i == 0 else (255, 185, 196)
+                pygame.draw.circle(screen, color, p, radius)
+
+
+    def _draw_ui(self, screen) -> None:
+        title = self.font.render("Level Scene (10m x 10m Map)", True, (235, 240, 252))
         details = self.small_font.render(
-            f"{block_count} blocks, each {block_size_m:.0f}m x {block_size_m:.0f}m",
+            "NPCs plan paths on local map",
             True,
             (217, 225, 245),
         )

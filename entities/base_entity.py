@@ -8,10 +8,21 @@ import pygame
 class BaseEntity:
     """Shared transform, movement, and rendering behavior for movable entities."""
 
-    def __init__(self, x: float, y: float, yaw_rad: float = 0.0) -> None:
+    def __init__(self, x: float, y: float, yaw_rad: float = 0.0, color_scheme: int = 0) -> None:
         self.x = float(x)
         self.y = float(y)
         self.psi = float(yaw_rad)
+
+        if color_scheme == 0:
+            self.body_color = (245, 188, 100)
+            self.marker_color = (42, 56, 84)
+        elif color_scheme == 1:
+            self.body_color = (235, 70, 90)
+            self.marker_color = (255, 215, 225)
+        else:
+            self.body_color = (245, 245, 245)
+            self.marker_color = (120, 120, 120)
+
 
     @property
     def x_m(self) -> float:
@@ -45,9 +56,12 @@ class BaseEntity:
         self,
         screen: pygame.Surface,
         view,
-        body_color: tuple[int, int, int] = (245, 188, 100),
-        marker_color: tuple[int, int, int] = (42, 56, 84),
+        body_color: tuple[int, int, int] | None = None,
+        marker_color: tuple[int, int, int] | None = None,
     ) -> None:
+        body_color = self.body_color if body_color is None else body_color
+        marker_color = self.marker_color if marker_color is None else marker_color
+
         x_px, y_px = view.to_screen(self.x, self.y)
         radius = max(4, int(0.25 * view.pixels_per_meter))
         pygame.draw.circle(screen, body_color, (x_px, y_px), radius)

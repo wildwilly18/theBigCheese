@@ -33,6 +33,7 @@ class SceneManager:
 
     def update(self, dt: float) -> None:
         if self.current_scene is not None:
+            print(f"Current Scene : {type(self.current_scene).__name__}")
             self.current_scene.update(dt)
 
     def draw(self) -> None:

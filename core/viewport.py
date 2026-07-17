@@ -6,7 +6,6 @@ from typing import Iterable
 
 import pygame
 
-
 @dataclass
 class MapViewport:
     """Maps meter-space coordinates into pixels while fitting inside the screen."""

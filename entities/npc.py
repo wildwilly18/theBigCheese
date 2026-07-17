@@ -13,21 +13,24 @@ from entities.base_entity import BaseEntity
 class NPCState(Enum):
     Idle = 0
     Moving = 1
+    Tracking = 2
 
 
 class NPC(BaseEntity):
     """Autonomous entity that follows a planned path in map space."""
 
     def __init__(self, active_map: Map, id: int, x: float, y: float, psi: float, path_init: Optional[np.ndarray] = None) -> None:
-        super().__init__(x, y, yaw_rad=psi)
+        super().__init__(x, y, yaw_rad=psi, color_scheme=1)
         self.active_map = active_map
         self.id = int(id)
 
         self.v = 0.0
         self.omega = 0.0
-        self.a_max = 0.1
-        self.alpha_max = 0.1
-        self.wp_accept_dist = 0.01
+        self.a_max = 1.0
+        self.alpha_max = 3.0
+        self.heading_time_constant_s = 0.12
+        self.max_turn_rate_rps = 8.0
+        self.wp_accept_dist = 0.2
         self.state = NPCState.Idle
         self._path = np.empty((0, 2), dtype=float)
         self.path = path_init
@@ -85,6 +88,7 @@ class NPC(BaseEntity):
 
         head_err = self.small_angle_diff(heading, self.psi)
 
-        v_cmd = max(-10 * (head_err ** 2) + 2, 0)
-        omega_cmd = max(-0.5, min(0.5, head_err))
+        v_cmd = max(-1.5 * (head_err ** 2) + 2, 0.35)
+        omega_cmd = head_err / self.heading_time_constant_s
+        omega_cmd = max(-self.max_turn_rate_rps, min(self.max_turn_rate_rps, omega_cmd))
         return (v_cmd, omega_cmd)
