@@ -1,5 +1,6 @@
 from core.map import Map
 from entities.npc import NPC
+from entities.player import Player
 import numpy as np
 
 import heapq
@@ -20,6 +21,7 @@ class Orchestrator:
     map : Map
     num_actors : int = 0
     actors : list[NPC] = field(default_factory=list)
+    player: Player | None = None
 
     def __len__(self):
         return len(self.actors)
@@ -43,6 +45,9 @@ class Orchestrator:
             if actor.id == actor_id:
                 return actor
         raise ValueError(f"Actor id {actor_id} not found")
+
+    def set_player(self, player: Player) -> None:
+        self.player = player
 
     def plan_actor_to_goal(
         self,

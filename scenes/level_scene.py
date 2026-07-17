@@ -99,7 +99,7 @@ class LevelScene(BaseScene):
         self.player.yaw_rad = 0.0
 
     def _setup_enemy_orchestrator(self) -> None:
-        self.enemies = Orchestrator(map=self.level_map)
+        self.enemies = Orchestrator(map=self.level_map, player=self.player)
 
         self.enemies.add_actor(0, 2.0, 20.0, 0.0)
 
